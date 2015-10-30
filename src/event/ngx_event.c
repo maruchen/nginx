@@ -245,24 +245,24 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
     delta = ngx_current_msec;
 
-    (void) ngx_process_events(cycle, timer, flags);
+    (void) ngx_process_events(cycle, timer, flags); // // 调用epoll_wait收到事件，并把事件写入队列
 
     delta = ngx_current_msec - delta;
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "timer delta: %M", delta);
 
-    ngx_event_process_posted(cycle, &ngx_posted_accept_events);
+    ngx_event_process_posted(cycle, &ngx_posted_accept_events);  // 处理ngx_posted_accept_events 队列中的事件
 
     if (ngx_accept_mutex_held) {
         ngx_shmtx_unlock(&ngx_accept_mutex);
     }
 
     if (delta) {
-        ngx_event_expire_timers();
+        ngx_event_expire_timers();  // 处理超时队列中的超时事件
     }
 
-    ngx_event_process_posted(cycle, &ngx_posted_events);
+    ngx_event_process_posted(cycle, &ngx_posted_events);    // 处理ngx_posted_events 队列中的事件
 }
 
 
