@@ -58,6 +58,9 @@ static ngx_uint_t argument_number[] = {
 };
 
 
+/**
+* 从命令行解析配置
+*/
 char *
 ngx_conf_param(ngx_conf_t *cf)
 {
@@ -97,6 +100,9 @@ ngx_conf_param(ngx_conf_t *cf)
 }
 
 
+/**
+* 从配置文件解析配置
+*/
 char *
 ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 {
@@ -817,7 +823,7 @@ ngx_conf_open_file(ngx_cycle_t *cycle, ngx_str_t *name)
     ngx_str_t         full;
     ngx_uint_t        i;
     ngx_list_part_t  *part;
-    ngx_open_file_t  *file;
+    ngx_open_file_t  *file;  // fd, name, data
 
 #if (NGX_SUPPRESS_WARN)
     ngx_str_null(&full);
@@ -833,7 +839,7 @@ ngx_conf_open_file(ngx_cycle_t *cycle, ngx_str_t *name)
         part = &cycle->open_files.part;
         file = part->elts;
 
-        for (i = 0; /* void */ ; i++) {
+        for (i = 0; /* void */ ; i++) {  // 在已经打开的文件链表中查找这个文件是否已经打开
 
             if (i >= part->nelts) {
                 if (part->next == NULL) {
@@ -860,7 +866,7 @@ ngx_conf_open_file(ngx_cycle_t *cycle, ngx_str_t *name)
     }
 
     if (name->len) {
-        file->fd = NGX_INVALID_FILE;
+        file->fd = NGX_INVALID_FILE;  //  初始时不可用
         file->name = full;
 
     } else {

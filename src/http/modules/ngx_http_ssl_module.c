@@ -491,12 +491,16 @@ ngx_http_ssl_add_variables(ngx_conf_t *cf)
 }
 
 
+/**
+ * 创建并返回 ngx_http_ssl_srv_conf_t  *sscf;
+ */
 static void *
 ngx_http_ssl_create_srv_conf(ngx_conf_t *cf)
 {
+    // 创建配置
     ngx_http_ssl_srv_conf_t  *sscf;
 
-    sscf = ngx_pcalloc(cf->pool, sizeof(ngx_http_ssl_srv_conf_t));
+    sscf = ngx_pcalloc(cf->pool, sizeof(ngx_http_ssl_srv_conf_t)); // 申请内存，并置0
     if (sscf == NULL) {
         return NULL;
     }
@@ -518,7 +522,7 @@ ngx_http_ssl_create_srv_conf(ngx_conf_t *cf)
      *     sscf->stapling_responder = { 0, NULL };
      */
 
-    sscf->enable = NGX_CONF_UNSET;
+    sscf->enable = NGX_CONF_UNSET; // -1
     sscf->prefer_server_ciphers = NGX_CONF_UNSET;
     sscf->buffer_size = NGX_CONF_UNSET_SIZE;
     sscf->verify = NGX_CONF_UNSET_UINT;

@@ -200,12 +200,10 @@ ngx_http_init_connection(ngx_connection_t *c)
     ngx_http_port_t        *port;
     ngx_http_in_addr_t     *addr;
     ngx_http_log_ctx_t     *ctx;
-    ngx_http_connection_t  *hc;
-#if (NGX_HAVE_INET6)
-    struct sockaddr_in6    *sin6;
-    ngx_http_in6_addr_t    *addr6;
-#endif
+    ngx_http_connection_t  *hc;  //  ngx_http_connection_t 和 ngx_connection_t 的区别?
 
+
+	// 分配 ngx_http_connection_t
     hc = ngx_pcalloc(c->pool, sizeof(ngx_http_connection_t));
     if (hc == NULL) {
         ngx_http_close_connection(c);
@@ -233,25 +231,6 @@ ngx_http_init_connection(ngx_connection_t *c)
 
         switch (c->local_sockaddr->sa_family) {
 
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            sin6 = (struct sockaddr_in6 *) c->local_sockaddr;
-
-            addr6 = port->addrs;
-
-            /* the last address is "*" */
-
-            for (i = 0; i < port->naddrs - 1; i++) {
-                if (ngx_memcmp(&addr6[i].addr6, &sin6->sin6_addr, 16) == 0) {
-                    break;
-                }
-            }
-
-            hc->addr_conf = &addr6[i].conf;
-
-            break;
-#endif
-
         default: /* AF_INET */
             sin = (struct sockaddr_in *) c->local_sockaddr;
 
@@ -265,7 +244,7 @@ ngx_http_init_connection(ngx_connection_t *c)
                 }
             }
 
-            hc->addr_conf = &addr[i].conf;
+            hc->addr_conf = &addr[i].conf; // 找到服务器的地址
 
             break;
         }
@@ -274,16 +253,9 @@ ngx_http_init_connection(ngx_connection_t *c)
 
         switch (c->local_sockaddr->sa_family) {
 
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            addr6 = port->addrs;
-            hc->addr_conf = &addr6[0].conf;
-            break;
-#endif
-
         default: /* AF_INET */
             addr = port->addrs;
-            hc->addr_conf = &addr[0].conf;
+            hc->addr_conf = &addr[0].conf;  // 找到服务器的地址
             break;
         }
     }
@@ -291,6 +263,7 @@ ngx_http_init_connection(ngx_connection_t *c)
     /* the default server configuration for the address:port */
     hc->conf_ctx = hc->addr_conf->default_server->ctx;
 
+	// 创建 ngx_http_log_ctx_t
     ctx = ngx_palloc(c->pool, sizeof(ngx_http_log_ctx_t));
     if (ctx == NULL) {
         ngx_http_close_connection(c);
@@ -308,9 +281,9 @@ ngx_http_init_connection(ngx_connection_t *c)
 
     c->log_error = NGX_ERROR_INFO;
 
-    rev = c->read;
-    rev->handler = ngx_http_wait_request_handler;
-    c->write->handler = ngx_http_empty_handler;
+    rev = c->read;  // ngx_event_t            *rev;  ngx_event_t 是什么用?
+    rev->handler = ngx_http_wait_request_handler;  // ?
+    c->write->handler = ngx_http_empty_handler;   // ?
 
 #if (NGX_HTTP_SPDY)
     if (hc->addr_conf->spdy) {
@@ -324,11 +297,11 @@ ngx_http_init_connection(ngx_connection_t *c)
 
     sscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_ssl_module);
 
-    if (sscf->enable || hc->addr_conf->ssl) {
+    if (sscf->enable || hc->addr_conf->ssl) {  // ? 这里如何判断还没握手?
 
         c->log->action = "SSL handshaking";
 
-        if (hc->addr_conf->ssl && sscf->ssl.ctx == NULL) {
+        if (hc->addr_conf->ssl && sscf->ssl.ctx == NULL) {  // 开启ssl，但是没有配置证书
             ngx_log_error(NGX_LOG_ERR, c->log, 0,
                           "no \"ssl_certificate\" is defined "
                           "in server listening on SSL port");
@@ -336,9 +309,9 @@ ngx_http_init_connection(ngx_connection_t *c)
             return;
         }
 
-        hc->ssl = 1;
+        hc->ssl = 1;  // ?
 
-        rev->handler = ngx_http_ssl_handshake;
+        rev->handler = ngx_http_ssl_handshake;  // ?
     }
     }
 #endif
@@ -708,6 +681,10 @@ ngx_http_ssl_handshake(ngx_event_t *rev)
             sscf = ngx_http_get_module_srv_conf(hc->conf_ctx,
                                                 ngx_http_ssl_module);
 
+			/*
+			 * 创建ngx_ssl_connection_t并初始化
+			 * openssl库中关于ssl连接的初始化
+			 */
             if (ngx_ssl_create_connection(&sscf->ssl, c, NGX_SSL_BUFFER)
                 != NGX_OK)
             {
@@ -715,8 +692,20 @@ ngx_http_ssl_handshake(ngx_event_t *rev)
                 return;
             }
 
+			/*
+		         * 调用ngx_ssl_handshake函数进行ssl握手，连接双方会在ssl握手时交换相
+		         * 关数据(ssl版本，ssl加密算法，server端的公钥等) 并正式建立起ssl连接。
+		         * ngx_ssl_handshake函数内部对openssl库进行了封装。
+		         * 调用SSL_do_handshake()来进行握手，并根据其返回值判断ssl握手是否完成
+		         * 或者出错。
+		         */
             rc = ngx_ssl_handshake(c);
 
+			/*
+			 * ssl握手可能需要多次数据交互才能完成。
+			 * 如果ssl握手没有完成，ngx_ssl_handshake会根据具体情况(如需要读取更
+			 * 多的握手数据包，或者需要发送握手数据包）来重新添加读写事件
+			 */
             if (rc == NGX_AGAIN) {
 
                 if (!rev->timer_set) {
@@ -729,6 +718,10 @@ ngx_http_ssl_handshake(ngx_event_t *rev)
                 return;
             }
 
+			/*
+			 * 若ssl握手完成或者出错，ngx_ssl_handshake会返回NGX_OK或者NGX_ERROR, 然后ngx_http_ssl_handshake调用
+			 * ngx_http_ssl_handshake_handler以继续处理
+			 */
             ngx_http_ssl_handshake_handler(c);
 
             return;

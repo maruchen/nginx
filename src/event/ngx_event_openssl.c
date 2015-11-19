@@ -53,6 +53,7 @@ static int ngx_ssl_session_ticket_key_callback(ngx_ssl_conn_t *ssl_conn,
 #endif
 
 #if (OPENSSL_VERSION_NUMBER < 0x10002002L || defined LIBRESSL_VERSION_NUMBER)
+// 支持LibreSSL库
 static ngx_int_t ngx_ssl_check_name(ngx_str_t *name, ASN1_STRING *str);
 #endif
 
@@ -1028,8 +1029,8 @@ ngx_ssl_ecdh_curve(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *name)
 ngx_int_t
 ngx_ssl_create_connection(ngx_ssl_t *ssl, ngx_connection_t *c, ngx_uint_t flags)
 {
+	// 创建 ngx_ssl_connection_t
     ngx_ssl_connection_t  *sc;
-
     sc = ngx_pcalloc(c->pool, sizeof(ngx_ssl_connection_t));
     if (sc == NULL) {
         return NGX_ERROR;
@@ -1038,25 +1039,26 @@ ngx_ssl_create_connection(ngx_ssl_t *ssl, ngx_connection_t *c, ngx_uint_t flags)
     sc->buffer = ((flags & NGX_SSL_BUFFER) != 0);
     sc->buffer_size = ssl->buffer_size;
 
-    sc->connection = SSL_new(ssl->ctx);
+    sc->connection = SSL_new(ssl->ctx); // SSL结构体。 创建openssl库中对ssl连接的描述结构 
 
     if (sc->connection == NULL) {
         ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "SSL_new() failed");
         return NGX_ERROR;
     }
 
-    if (SSL_set_fd(sc->connection, c->fd) == 0) {
+    if (SSL_set_fd(sc->connection, c->fd) == 0) {   /* 关联(openssl库)ssl连接到tcp连接对应的socket */
         ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "SSL_set_fd() failed");
         return NGX_ERROR;
     }
 
-    if (flags & NGX_SSL_CLIENT) {
-        SSL_set_connect_state(sc->connection);
+    if (flags & NGX_SSL_CLIENT) {   /* upstream中发起对后端的ssl连接，指明nginx ssl连接是客户端 */
+        SSL_set_connect_state(sc->connection);  
 
-    } else {
+    } else {        /* 指明nginx ssl连接是服务端 */
         SSL_set_accept_state(sc->connection);
     }
 
+	/* 关联(openssl库)ssl连接到用户数据(当前连接c) */
     if (SSL_set_ex_data(sc->connection, ngx_ssl_connection_index, c) == 0) {
         ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "SSL_set_ex_data() failed");
         return NGX_ERROR;
@@ -1094,6 +1096,7 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 
+	/* 返回1表示ssl握手成功 */
     if (n == 1) {
 
         if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
@@ -2214,7 +2217,7 @@ ngx_int_t
 ngx_ssl_session_cache_init(ngx_shm_zone_t *shm_zone, void *data)
 {
     size_t                    len;
-    ngx_slab_pool_t          *shpool;
+    ngx_slab_pool_t          *shpool;  // slab内存缓存?
     ngx_ssl_session_cache_t  *cache;
 
     if (data) {
@@ -3148,7 +3151,7 @@ ngx_ssl_get_session_id(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *s)
 ngx_int_t
 ngx_ssl_get_session_reused(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *s)
 {
-    if (SSL_session_reused(c->ssl->connection)) {
+    if (SSL_session_reused(c->ssl->connection)) { //@see libressl, Ssl.h   get开关?
         ngx_str_set(s, "r");
 
     } else {
@@ -3495,15 +3498,16 @@ ngx_openssl_engine(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     value = cf->args->elts;
 
-    engine = ENGINE_by_id((const char *) value[1].data);
-
+    engine = ENGINE_by_id((const char *) value[1].data);  // 在   libressl 中定义 。 /* Retrieve an engine from the list by its unique "id" value. */
+	// TODO: data打印出来是什么?
+	
     if (engine == NULL) {
         ngx_ssl_error(NGX_LOG_WARN, cf->log, 0,
                       "ENGINE_by_id(\"%V\") failed", &value[1]);
         return NGX_CONF_ERROR;
     }
 
-    if (ENGINE_set_default(engine, ENGINE_METHOD_ALL) == 0) {
+    if (ENGINE_set_default(engine, ENGINE_METHOD_ALL) == 0) {  // @see libressl, Engine.h。 ENGINE_METHOD_ALL 是flags参数，开启所有算法
         ngx_ssl_error(NGX_LOG_WARN, cf->log, 0,
                       "ENGINE_set_default(\"%V\", ENGINE_METHOD_ALL) failed",
                       &value[1]);

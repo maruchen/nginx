@@ -45,7 +45,7 @@ typedef struct {
 
 
 typedef struct {
-    ngx_ssl_conn_t             *connection;
+    ngx_ssl_conn_t             *connection;  //@see LibreSSL SSL
 
     ngx_int_t                   last;
     ngx_buf_t                  *buf;
