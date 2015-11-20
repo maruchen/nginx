@@ -998,7 +998,7 @@ struct ssl_st {
 	 * (one of SSL2_VERSION, SSL3_VERSION, TLS1_VERSION, DTLS1_VERSION)
 	 */
 	int version;
-	int type; /* SSL_ST_CONNECT or SSL_ST_ACCEPT */
+	int type; /* SSL_ST_CONNECT or SSL_ST_ACCEPT */ // 记录是作为客户端还是服务器端
 
 	const SSL_METHOD *method; /* SSLv3 */
 
@@ -1020,11 +1020,11 @@ struct ssl_st {
 	 * when a 0 or -1 is returned.  This is needed for
 	 * non-blocking IO so we know what request needs re-doing when
 	 * in SSL_accept or SSL_connect */
-	int rwstate;
+	int rwstate;  // 记录握手的状态
 
 	/* true when we are actually in SSL_accept() or SSL_connect() */
 	int in_handshake;
-	int (*handshake_func)(SSL *);
+	int (*handshake_func)(SSL *);  // 初始=0。直到调用SSL_set_accpet/connect_state
 
 	/* Imagine that here's a boolean member "init" that is
 	 * switched as soon as SSL_set_{accept/connect}_state

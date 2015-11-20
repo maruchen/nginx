@@ -217,7 +217,7 @@ ssl3_accept(SSL *s)
 			}
 			s->type = SSL_ST_ACCEPT;
 
-			if (!ssl3_setup_init_buffer(s)) {
+			if (!ssl3_setup_init_buffer(s)) { // 分配ssl->init_buf
 				ret = -1;
 				goto end;
 			}
@@ -234,12 +234,12 @@ ssl3_accept(SSL *s)
 				 * so that the output is sent in a way that
 				 * TCP likes :-)
 				 */
-				if (!ssl_init_wbio_buffer(s, 1)) {
+				if (!ssl_init_wbio_buffer(s, 1)) {  //初始化 ssl->bbio
 					ret = -1;
 					goto end;
 				}
 
-				if (!tls1_init_finished_mac(s)) {
+				if (!tls1_init_finished_mac(s)) {  // 初始化 ssl->s3->handshake_buffer
 					ret = -1;
 					goto end;
 				}
