@@ -1963,7 +1963,7 @@ ssl3_handshake_msg_start(SSL *s, uint8_t msg_type)
 
 	/* Handshake message type and length. */
 	*(p++) = msg_type;
-	l2n3(0, p);
+	l2n3(0, p); // long to network 3 bytes, p+=3  // 写入3个字节0，代表长度
 
 	return (d + ssl3_handshake_msg_hdr_len(s));
 }

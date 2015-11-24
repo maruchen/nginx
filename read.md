@@ -70,4 +70,40 @@ SSL3_ENC_METHOD TLSv1_2_enc_data = {
 	    SSL_ENC_FLAG_SHA256_PRF|SSL_ENC_FLAG_TLS1_2_CIPHERS,
 };
 
+const SSL_METHOD TLSv1_2_server_method_data = {
+	.version = TLS1_2_VERSION,
+	.ssl_new = tls1_new,
+	.ssl_clear = tls1_clear,
+	.ssl_free = tls1_free,
+	.ssl_accept = ssl3_accept,
+	.ssl_connect = ssl_undefined_function,
+	.ssl_read = ssl3_read,
+	.ssl_peek = ssl3_peek,
+	.ssl_write = ssl3_write,
+	.ssl_shutdown = ssl3_shutdown,
+	.ssl_renegotiate = ssl3_renegotiate,
+	.ssl_renegotiate_check = ssl3_renegotiate_check,
+	.ssl_get_message = ssl3_get_message,
+	.ssl_read_bytes = ssl3_read_bytes,
+	.ssl_write_bytes = ssl3_write_bytes,
+	.ssl_dispatch_alert = ssl3_dispatch_alert,
+	.ssl_ctrl = ssl3_ctrl,
+	.ssl_ctx_ctrl = ssl3_ctx_ctrl,
+	.get_cipher_by_char = ssl3_get_cipher_by_char,
+	.put_cipher_by_char = ssl3_put_cipher_by_char,
+	.ssl_pending = ssl3_pending,
+	.num_ciphers = ssl3_num_ciphers,
+	.get_cipher = ssl3_get_cipher,
+	.get_ssl_method = tls1_get_server_method,
+	.get_timeout = tls1_default_timeout,
+	.ssl3_enc = &TLSv1_2_enc_data,
+	.ssl_version = ssl_undefined_void_function,
+	.ssl_callback_ctrl = ssl3_callback_ctrl,
+	.ssl_ctx_callback_ctrl = ssl3_ctx_callback_ctrl,
+};
+
+
+
+第一个RTT中，server发出Server Key Exchange。包含ECDH的参数：曲线、公钥（65字节）、签名（256字节）
+
 

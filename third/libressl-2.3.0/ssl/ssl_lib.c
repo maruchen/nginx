@@ -2197,7 +2197,7 @@ ssl_get_server_send_pkey(const SSL *s)
 		i = SSL_PKEY_DSA_SIGN;
 	} else if (alg_a & SSL_aRSA) {
 		if (c->pkeys[SSL_PKEY_RSA_ENC].x509 == NULL)
-			i = SSL_PKEY_RSA_SIGN;
+			i = SSL_PKEY_RSA_SIGN;  //@cj here?
 		else
 			i = SSL_PKEY_RSA_ENC;
 	} else if (alg_a & SSL_aGOST01) {

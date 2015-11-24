@@ -811,7 +811,7 @@ ssl3_write_pending(SSL *s, int type, const unsigned char *buf, unsigned int len)
 
 /* Return up to 'len' payload bytes received in 'type' records.
  * 'type' is one of the following:
- *
+ *   有以下两种类型的调用: 
  *   -  SSL3_RT_HANDSHAKE (when ssl3_get_message calls us)
  *   -  SSL3_RT_APPLICATION_DATA (when ssl3_read calls us)
  *   -  0 (during a shutdown, no data has to be returned)
@@ -867,7 +867,7 @@ ssl3_read_bytes(SSL *s, int type, unsigned char *buf, int len, int peek)
 		unsigned char *dst = buf;
 		unsigned int k;
 
-		/* peek == 0 */
+		/* peek == 0 */  // 从  s->s3->handshake_fragment 复制 len 或 s->s3->handshake_fragment_len 字节 到 buf
 		n = 0;
 		while ((len > 0) && (s->s3->handshake_fragment_len > 0)) {
 			*dst++ = *src++;
@@ -875,10 +875,10 @@ ssl3_read_bytes(SSL *s, int type, unsigned char *buf, int len, int peek)
 			s->s3->handshake_fragment_len--;
 			n++;
 		}
-		/* move any remaining fragment bytes: */
+		/* move any remaining fragment bytes: */  // 把 s->s3->handshake_fragment 后面的数据向前移动 len
 		for (k = 0; k < s->s3->handshake_fragment_len; k++)
 			s->s3->handshake_fragment[k] = *src++;
-		return n;
+		return n;  // 返回 填充到buff多少字节
 	}
 
 	/*

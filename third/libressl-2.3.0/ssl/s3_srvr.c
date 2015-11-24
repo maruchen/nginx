@@ -166,6 +166,10 @@
 
 #include "bytestring.h"
 
+#if 1
+
+#endif
+
 int
 ssl3_accept(SSL *s)
 {
@@ -178,8 +182,7 @@ ssl3_accept(SSL *s)
 	errno = 0;
 
 	if (s->info_callback != NULL)
-		cb = s->info_callback;
-	else if (s->ctx->info_callback != NULL)
+		cb = s->info_callback;     // 做什么用?	else if (s->ctx->info_callback != NULL)
 		cb = s->ctx->info_callback;
 
 	/* init things to blank */
@@ -210,7 +213,7 @@ ssl3_accept(SSL *s)
 			if (cb != NULL)
 				cb(s, SSL_CB_HANDSHAKE_START, 1);
 
-			if ((s->version >> 8) != 3) {
+			if ((s->version >> 8) != 3) {  // >= TLS 1.0
 				SSLerr(SSL_F_SSL3_ACCEPT, ERR_R_INTERNAL_ERROR);
 				ret = -1;
 				goto end;
@@ -221,12 +224,12 @@ ssl3_accept(SSL *s)
 				ret = -1;
 				goto end;
 			}
-			if (!ssl3_setup_buffers(s)) {
+			if (!ssl3_setup_buffers(s)) {   // 分配 ssl->ssl3_state_st->r(w)buf.buf
 				ret = -1;
 				goto end;
 			}
 
-			s->init_num = 0;
+			s->init_num = 0;   /* amount read/written */
 
 			if (s->state != SSL_ST_RENEGOTIATE) {
 				/*
@@ -293,8 +296,8 @@ ssl3_accept(SSL *s)
 		case SSL3_ST_SR_CLNT_HELLO_B:
 		case SSL3_ST_SR_CLNT_HELLO_C:
 
-			s->shutdown = 0;
-			if (s->rwstate != SSL_X509_LOOKUP) {
+			s->shutdown = 0;  // 初始值  0x01 sent, 0x02 for received
+			if (s->rwstate != SSL_X509_LOOKUP) {  // Server不会进入 SSL_X509_LOOKUP 状态
 				ret = ssl3_get_client_hello(s);
 				if (ret <= 0)
 					goto end;
@@ -317,7 +320,7 @@ ssl3_accept(SSL *s)
 					s->state = SSL3_ST_SW_CHANGE_A;
 			}
 			else
-				s->state = SSL3_ST_SW_CERT_A;
+				s->state = SSL3_ST_SW_CERT_A;  // 完全握手 ?
 			s->init_num = 0;
 			break;
 
@@ -326,13 +329,13 @@ ssl3_accept(SSL *s)
 			/* Check if it is anon DH or anon ECDH. */
 			if (!(s->s3->tmp.new_cipher->algorithm_auth &
 			    SSL_aNULL)) {
-				ret = ssl3_send_server_certificate(s);
+				ret = ssl3_send_server_certificate(s);  // Certifacate 帧
 				if (ret <= 0)
 					goto end;
 				if (s->tlsext_status_expected)
 					s->state = SSL3_ST_SW_CERT_STATUS_A;
 				else
-					s->state = SSL3_ST_SW_KEY_EXCH_A;
+					s->state = SSL3_ST_SW_KEY_EXCH_A;      // Server Key Exchange 帧
 			} else {
 				skip = 1;
 				s->state = SSL3_ST_SW_KEY_EXCH_A;
@@ -741,14 +744,14 @@ ssl3_get_client_hello(SSL *s)
 		s->state = SSL3_ST_SR_CLNT_HELLO_B;
 	}
 	s->first_packet = 1;
-	n = s->method->ssl_get_message(s, SSL3_ST_SR_CLNT_HELLO_B,
+	n = s->method->ssl_get_message(s, SSL3_ST_SR_CLNT_HELLO_B,       // ssl3_get_message() @see S3_both.c  
 	    SSL3_ST_SR_CLNT_HELLO_C, SSL3_MT_CLIENT_HELLO,
 	    SSL3_RT_MAX_PLAIN_LENGTH, &ok);
-
+    /* 状态变成 SSL3_ST_SR_CLNT_HELLO_C */
 	if (!ok)
 		return ((int)n);
 	s->first_packet = 0;
-	d = p = (unsigned char *)s->init_msg;
+	d = p = (unsigned char *)s->init_msg;  // 不包含 type 和 length。指向 version
 
 	if (2 > n)
 		goto truncated;
@@ -756,11 +759,11 @@ ssl3_get_client_hello(SSL *s)
 	 * Use version from inside client hello, not from record header.
 	 * (may differ: see RFC 2246, Appendix E, second paragraph)
 	 */
-	s->client_version = (((int)p[0]) << 8)|(int)p[1];
-	p += 2;
+	s->client_version = (((int)p[0]) << 8)|(int)p[1]; 
+	p += 2;  // now point to random number
 
 	if ((s->version == DTLS1_VERSION && s->client_version > s->version) ||
-	    (s->version != DTLS1_VERSION && s->client_version < s->version)) {
+	    (s->version != DTLS1_VERSION && s->client_version < s->version)) { // version 是从前面取的
 		SSLerr(SSL_F_SSL3_GET_CLIENT_HELLO,
 		    SSL_R_WRONG_VERSION_NUMBER);
 		if ((s->client_version >> 8) == SSL3_VERSION_MAJOR &&
@@ -818,7 +821,7 @@ ssl3_get_client_hello(SSL *s)
 	 * SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION setting will be
 	 * ignored.
 	 */
-	if ((s->new_session && (s->options &
+	if ((s->new_session && (s->options &  // ?  new_session 是在哪里设置的 ?
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION))) {
 		if (!ssl_get_new_session(s, 1))
 			goto err;
@@ -830,12 +833,12 @@ ssl3_get_client_hello(SSL *s)
 			goto err;
 		else {
 			/* i == 0 */
-			if (!ssl_get_new_session(s, 1))
+			if (!ssl_get_new_session(s, 1))   // 创建 new session 。
 				goto err;
 		}
 	}
 
-	p += j;
+	p += j;  // 指向session ID 后面的位置  。 j 是session ID  length
 
 	if (SSL_IS_DTLS(s)) {
 		/* cookie stuff */
@@ -890,7 +893,7 @@ ssl3_get_client_hello(SSL *s)
 
 	if (p + 2 - d > n)
 		goto truncated;
-	n2s(p, i);
+	n2s(p, i);                    // 网络字节转换为short => i : cipher suites length 。 并且 p+=2
 	if ((i == 0) && (j != 0)) {
 		/* we need a cipher if we are not resuming a session */
 		al = SSL_AD_ILLEGAL_PARAMETER;
@@ -933,7 +936,7 @@ ssl3_get_client_hello(SSL *s)
 	/* compression */
 	if (p + 1 - d > n)
 		goto truncated;
-	i= *(p++);
+	i= *(p++);  // compression methods length
 	if (p + i - d > n)
 		goto truncated;
 	for (j = 0; j < i; j++) {
@@ -1088,7 +1091,7 @@ ssl3_send_server_hello(SSL *s)
 	int sl;
 
 	if (s->state == SSL3_ST_SW_SRVR_HELLO_A) {
-		d = p = ssl3_handshake_msg_start(s, SSL3_MT_SERVER_HELLO);
+		d = p = ssl3_handshake_msg_start(s, SSL3_MT_SERVER_HELLO);  // 0x02
 
 		*(p++) = s->version >> 8;
 		*(p++) = s->version & 0xff;
@@ -1143,7 +1146,7 @@ ssl3_send_server_hello(SSL *s)
 			return (-1);
 		}
 
-		ssl3_handshake_msg_finish(s, p - d);
+		ssl3_handshake_msg_finish(s, p - d); // 最后填充 length
 	}
 
 	/* SSL3_ST_SW_SRVR_HELLO_B */
@@ -1468,13 +1471,21 @@ ssl3_send_server_key_exchange(SSL *s)
 					q += i;
 					j += i;
 				}
-				if (RSA_sign(NID_md5_sha1, md_buf, j,
+				#if 1
+				FILE *fp;
+				fp=fopen("cjdebug.txt", "a");
+				#endif
+				if (RSA_sign(NID_md5_sha1, md_buf, j,     // @ here!
 				    &(p[2]), &u, pkey->pkey.rsa) <= 0) {
 					SSLerr(
 					    SSL_F_SSL3_SEND_SERVER_KEY_EXCHANGE,
 					    ERR_LIB_RSA);
 					goto err;
 				}
+				#if 1
+				fprintf(fp, "Testing...\n");
+				fclose(fp);
+				#endif
 				s2n(u, p);
 				n += u + 2;
 			} else if (md) {

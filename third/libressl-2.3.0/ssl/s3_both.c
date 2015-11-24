@@ -406,6 +406,10 @@ ssl3_output_cert_chain(SSL *s, X509 *x)
  * The first four bytes (msg_type and length) are read in state 'st1',
  * the body is read in state 'stn'.
  */
+ // stl = SSL3_ST_SR_CLNT_HELLO_B
+ // stn = SSL3_ST_SR_CLNT_HELLO_C
+ // mt = SSL3_MT_CLIENT_HELLO
+ // max = SSL3_RT_MAX_PLAIN_LENGTH 16384
 long
 ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 {
@@ -437,8 +441,8 @@ ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 		int skip_message;
 
 		do {
-			while (s->init_num < 4) {
-				i = s->method->ssl_read_bytes(s,
+			while (s->init_num < 4) {   // 读 4个字节数据 到 p: s->init_buf->data  // 第一个字节是 0x01: SSL3_MT_CLIENT_HELLO。接着三个字节是消息长度
+				i = s->method->ssl_read_bytes(s,        // ssl3_read_bytes @see S3_pkt.c
 				    SSL3_RT_HANDSHAKE, &p[s->init_num],
 				    4 - s->init_num, 0);
 				if (i <= 0) {
@@ -447,7 +451,7 @@ ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 					return i;
 				}
 				s->init_num += i;
-			}
+			} // end while
 
 			skip_message = 0;
 			if (!s->server && p[0] == SSL3_MT_HELLO_REQUEST) {
@@ -469,9 +473,9 @@ ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 			}
 		} while (skip_message);
 
-		/* s->init_num == 4 */
+		/* s->init_num == 4 */ 
 
-		if ((mt >= 0) && (*p != mt)) {
+		if ((mt >= 0) && (*p != mt)) {  // mt = SSL3_MT_CLIENT_HELLO = 1 第一个字节是0x01
 			al = SSL_AD_UNEXPECTED_MESSAGE;
 			SSLerr(SSL_F_SSL3_GET_MESSAGE,
 			    SSL_R_UNEXPECTED_MESSAGE);
@@ -485,9 +489,9 @@ ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 			SSLerr(SSL_F_SSL3_GET_MESSAGE, ERR_R_BUF_LIB);
 			goto err;
 		}
-		s->s3->tmp.message_type = u8;
+		s->s3->tmp.message_type = u8;  // 第一个字节 : 类型
 
-		if (l > (unsigned long)max) {
+		if (l > (unsigned long)max) {  // 三个字节 : 长度
 			al = SSL_AD_ILLEGAL_PARAMETER;
 			SSLerr(SSL_F_SSL3_GET_MESSAGE,
 			    SSL_R_EXCESSIVE_MESSAGE_SIZE);
@@ -497,8 +501,8 @@ ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 			SSLerr(SSL_F_SSL3_GET_MESSAGE, ERR_R_BUF_LIB);
 			goto err;
 		}
-		s->s3->tmp.message_size = l;
-		s->state = stn;
+		s->s3->tmp.message_size = l;  // 消息长度
+		s->state = stn;  // 状态变迁成 SSL3_ST_SR_CLNT_HELLO_C
 
 		s->init_msg = s->init_buf->data + 4;
 		s->init_num = 0;
@@ -508,7 +512,7 @@ ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 	p = s->init_msg;
 	n = s->s3->tmp.message_size - s->init_num;
 	while (n > 0) {
-		i = s->method->ssl_read_bytes(s, SSL3_RT_HANDSHAKE,
+		i = s->method->ssl_read_bytes(s, SSL3_RT_HANDSHAKE,  // 继续把消息读完，读到 s->init_msg。长度是刚刚读到的3个字节代表的数字
 		    &p[s->init_num], n, 0);
 		if (i <= 0) {
 			s->rwstate = SSL_READING;
@@ -521,7 +525,7 @@ ssl3_get_message(SSL *s, int st1, int stn, int mt, long max, int *ok)
 
 	/* If receiving Finished, record MAC of prior handshake messages for
 	 * Finished verification. */
-	if (*s->init_buf->data == SSL3_MT_FINISHED)
+	if (*s->init_buf->data == SSL3_MT_FINISHED) 20
 		ssl3_take_mac(s);
 
 	/* Feed this message into MAC computation. */

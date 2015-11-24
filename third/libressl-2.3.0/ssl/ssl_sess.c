@@ -284,7 +284,7 @@ ssl_get_new_session(SSL *s, int session)
 
 	/* This gets used by clients and servers. */
 
-	if ((ss = SSL_SESSION_new()) == NULL)
+	if ((ss = SSL_SESSION_new()) == NULL)  // 分配 ssl_session 内存
 		return (0);
 
 	/* If the context has a default timeout, use it */
